@@ -1,0 +1,11 @@
+# ignoring the __pycache__ folder
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-selfcheck.json
+.DS_Store
+images/
