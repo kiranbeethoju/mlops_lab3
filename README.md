@@ -20,4 +20,4 @@ The original code from the scikit-learn example was refactored to:
     python plot_digits_classfication.py
     ```
 
-This will train the model, print a classification report and a confusion matrix to the console, and display plots showing some of the training digits and the predictions on the test set. 
+Refactored Code
