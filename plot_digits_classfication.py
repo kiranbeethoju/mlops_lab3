@@ -1,11 +1,10 @@
 """
-Recognizing hand-written digits using scikit-learn with hyperparameter optimization
+Recognizing hand-written digits using scikit-learn
 """
 
 import matplotlib.pyplot as plt
 from sklearn import datasets, metrics, svm
 from sklearn.model_selection import train_test_split, GridSearchCV
-import numpy as np
 
 def plot_some_digits(images, labels, title_prefix, n_to_plot=4):
     _, axes = plt.subplots(nrows=1, ncols=n_to_plot, figsize=(10, 3))
@@ -24,95 +23,50 @@ plot_some_digits(digits.images, digits.target, "Training")
 n_samples = len(digits.images)
 data = digits.images.reshape((n_samples, -1))
 
-# Hyperparameter optimization for test_size (dev_size)
-print("Optimizing test_size (dev_size)...")
-test_sizes = [0.2, 0.3, 0.4, 0.5]
-best_score = 0
-best_test_size = 0.5
+# Hyperparameter optimization
+param_grid = {'gamma': [0.001, 0.01, 0.1, 1], 'C': [1, 10, 100, 1000]}
+best_dev_acc = 0
+best_params = {}
+best_clf = None
 
-for test_size in test_sizes:
-    X_train_temp, X_test_temp, y_train_temp, y_test_temp = train_test_split(
-        data, digits.target, test_size=test_size, shuffle=False, random_state=42
+# Try different dev_size values
+for dev_size in [0.2, 0.3, 0.4, 0.5]:
+    # Split data with current dev_size
+    X_train, X_test, y_train, y_test = train_test_split(
+        data, digits.target, test_size=dev_size, shuffle=False
     )
     
-    # Quick evaluation with default parameters
-    clf_temp = svm.SVC(gamma=0.001, C=1.0)
-    clf_temp.fit(X_train_temp, y_train_temp)
-    score = clf_temp.score(X_test_temp, y_test_temp)
+    # Create and train GridSearchCV
+    clf = GridSearchCV(svm.SVC(), param_grid, cv=3)
+    clf.fit(X_train, y_train)
     
-    print(f"Test size: {test_size}, Accuracy: {score:.4f}")
-    
-    if score > best_score:
-        best_score = score
-        best_test_size = test_size
+    # Check if this is the best configuration
+    dev_acc = clf.best_score_
+    if dev_acc > best_dev_acc:
+        best_dev_acc = dev_acc
+        best_params = {'dev_size': dev_size, **clf.best_params_}
+        best_clf = clf.best_estimator_
+        # Keep the best split for final evaluation
+        X_train_best, X_test_best, y_train_best, y_test_best = X_train, X_test, y_train, y_test
 
-print(f"Best test_size: {best_test_size} with accuracy: {best_score:.4f}")
-
-# Split data with optimal test_size
-X_train, X_test, y_train, y_test = train_test_split(
-    data, digits.target, test_size=best_test_size, shuffle=False, random_state=42
-)
-
-# Hyperparameter optimization for gamma and C
-print("\nOptimizing gamma and C parameters...")
-param_grid = {
-    'C': [0.1, 1, 10, 100],
-    'gamma': [0.001, 0.01, 0.1, 1, 'scale', 'auto']
-}
-
-# Create SVM classifier
-svm_classifier = svm.SVC()
-
-# Perform grid search
-grid_search = GridSearchCV(
-    svm_classifier, 
-    param_grid, 
-    cv=3, 
-    scoring='accuracy', 
-    n_jobs=-1,
-    verbose=1
-)
-
-print("Performing grid search...")
-grid_search.fit(X_train, y_train)
-
-# Get best parameters
-best_params = grid_search.best_params_
-best_score = grid_search.best_score_
-
-print(f"\nBest parameters found:")
-print(f"C: {best_params['C']}")
-print(f"gamma: {best_params['gamma']}")
-print(f"Best cross-validation score: {best_score:.4f}")
+print(f"Best parameters: {best_params}")
+print(f"Best cross-validation accuracy: {best_dev_acc:.4f}")
 
 # Train final model with best parameters
-clf = grid_search.best_estimator_
-predicted = clf.predict(X_test)
+predicted = best_clf.predict(X_test_best)
 
 # Visualize predictions
-plot_some_digits(X_test, predicted, "Prediction")
+plot_some_digits(X_test_best, predicted, "Prediction")
 
 # Print classification report
-final_accuracy = clf.score(X_test, y_test)
-print(f"\nFinal test accuracy with optimized parameters: {final_accuracy:.4f}")
 print(
-    f"Classification report for optimized classifier:\n"
-    f"{metrics.classification_report(y_test, predicted)}\n"
+    f"Classification report for classifier {best_clf}:\n"
+    f"{metrics.classification_report(y_test_best, predicted)}\n"
 )
 
 # Display confusion matrix
-disp = metrics.ConfusionMatrixDisplay.from_predictions(y_test, predicted)
-disp.figure_.suptitle("Confusion Matrix - Optimized Model")
+disp = metrics.ConfusionMatrixDisplay.from_predictions(y_test_best, predicted)
+disp.figure_.suptitle("Confusion Matrix")
 print(f"Confusion matrix:\n{disp.confusion_matrix}")
-
-# Summary of optimization results
-print(f"\n{'='*50}")
-print("HYPERPARAMETER OPTIMIZATION SUMMARY")
-print(f"{'='*50}")
-print(f"Optimal test_size: {best_test_size}")
-print(f"Optimal C: {best_params['C']}")
-print(f"Optimal gamma: {best_params['gamma']}")
-print(f"Final test accuracy: {final_accuracy:.4f}")
-print(f"{'='*50}")
 
 plt.show() 
